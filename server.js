@@ -6,33 +6,47 @@ const walletRoutes = require("./routes/walletRoutes");
 const authRoutes = require("./routes/authRoutes");
 const mongoose = require("mongoose");
 
-// ✅ connect to MongoDB Atlas (serverless-safe)
-connectDB();
-
 const app = express();
 
-// ✅ CORS setup (local + vercel frontend)
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "https://pec-app-frontend.vercel.app/"],
-    credentials: true,
-  })
-);
+// ✅ Connect to MongoDB Atlas (serverless-safe)
+connectDB();
 
+// ✅ CORS setup for local dev + deployed frontend
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://pec-app-frontend.vercel.app",
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+
+  // ✅ Handle OPTIONS preflight request
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+
+  next();
+});
+
+// ✅ Body parser
 app.use(express.json());
 
-// Health check route
+// ✅ Health check route
 app.get("/", (req, res) => {
   res.send("Backend API is running 🚀");
 });
 
-// Routes
+// ✅ API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/wallet", walletRoutes);
 
+// ✅ Test DB connection route
 app.get("/api/test-db", (req, res) => {
   const state = mongoose.connection.readyState;
-  // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
   res.json({
     connected: state === 1,
     state,

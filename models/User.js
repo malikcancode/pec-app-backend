@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    email: { type: String, unique: true, required: true },
+    email: { type: String, unique: true },
     passwordHash: { type: String }, // make optional for OTP-first registration
     otp: String,
     otpExpires: Date,

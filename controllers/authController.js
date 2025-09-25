@@ -130,6 +130,77 @@ const loginWithOtp = async (req, res) => {
   }
 };
 
+// --- Register with username + password ---
+const registerWithUsername = async (req, res) => {
+  try {
+    const { username, password, invitationCode } = req.body;
+    if (!username || !password)
+      return res.status(400).json({ error: "Username and password required" });
+
+    let existing = await User.findOne({ name: username });
+    if (existing)
+      return res.status(400).json({ error: "Username already taken" });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const referralCode = Math.random()
+      .toString(36)
+      .substring(2, 8)
+      .toUpperCase();
+
+    const user = await User.create({
+      name: username,
+      passwordHash,
+      isVerified: true, // no OTP for username flow
+      referralCode,
+      referredBy: invitationCode
+        ? await User.findOne({ referralCode: invitationCode })?._id
+        : null,
+    });
+
+    res.json({
+      message: "Account created successfully",
+      token: generateToken(user._id),
+      user: {
+        id: user._id,
+        name: user.name,
+        referralCode: user.referralCode,
+      },
+    });
+  } catch (err) {
+    console.error("Register Username error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// --- Login with username + password ---
+const loginWithUsername = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password)
+      return res.status(400).json({ error: "Username and password required" });
+
+    const user = await User.findOne({ name: username });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) return res.status(400).json({ error: "Invalid password" });
+
+    res.json({
+      message: "Login successful",
+      token: generateToken(user._id),
+      user: {
+        id: user._id,
+        name: user.name,
+        referralCode: user.referralCode,
+      },
+    });
+  } catch (err) {
+    console.error("Login Username error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 // Get user profile
 const getMe = async (req, res) => {
   try {
@@ -144,4 +215,11 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { sendOtpHandler, registerWithOtp, loginWithOtp, getMe };
+module.exports = {
+  sendOtpHandler,
+  registerWithOtp,
+  loginWithOtp,
+  getMe,
+  registerWithUsername,
+  loginWithUsername,
+};

@@ -4,6 +4,7 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const walletRoutes = require("./routes/walletRoutes");
 const authRoutes = require("./routes/authRoutes");
+const productRoutes = require("./routes/productRoutes");
 const mongoose = require("mongoose");
 
 const app = express();
@@ -43,17 +44,7 @@ app.get("/", (req, res) => {
 // ✅ API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/wallet", walletRoutes);
-
-// ✅ Test DB connection route
-app.get("/api/test-db", (req, res) => {
-  const state = mongoose.connection.readyState;
-  res.json({
-    connected: state === 1,
-    state,
-    host: mongoose.connection.host,
-    db: mongoose.connection.name,
-  });
-});
+app.use("/api/products", productRoutes); // Add product routes here
 
 // ✅ Local dev mode only
 if (require.main === module) {

@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const sendOTP = require("../utils/mailer");
 
+// Generate token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
@@ -26,6 +27,7 @@ const sendOtpHandler = async (req, res) => {
         otpExpires,
         isVerified: false,
         name: email.split("@")[0],
+        role: "user", // Ensuring role is "user"
       });
     } else {
       user.otp = otp;
@@ -46,7 +48,6 @@ const sendOtpHandler = async (req, res) => {
   }
 };
 
-// --- Register with OTP and password ---
 const registerWithOtp = async (req, res) => {
   try {
     const { email, otp, password } = req.body;
@@ -94,7 +95,6 @@ const registerWithOtp = async (req, res) => {
   }
 };
 
-// --- Login with OTP only ---
 const loginWithOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -148,10 +148,15 @@ const registerWithUsername = async (req, res) => {
       .substring(2, 8)
       .toUpperCase();
 
+    // If email is not provided, assign a temporary email
+    const email = null; // For username-based registration, keep email null
+
     const user = await User.create({
       name: username,
+      email, // email is null in this case
       passwordHash,
       isVerified: true, // no OTP for username flow
+      role: "user", // Ensure role is "user"
       referralCode,
       referredBy: invitationCode
         ? await User.findOne({ referralCode: invitationCode })?._id

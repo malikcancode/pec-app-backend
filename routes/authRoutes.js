@@ -1,5 +1,4 @@
 const express = require("express");
-const router = express.Router();
 const {
   sendOtpHandler,
   registerWithOtp,
@@ -8,18 +7,19 @@ const {
   loginWithUsername,
   getMe,
 } = require("../controllers/authController");
-const { protect } = require("../middleware/authMiddleware");
 
-// OTP flow
-router.post("/send-otp", sendOtpHandler);
-router.post("/register", registerWithOtp);
-router.post("/login", loginWithOtp);
+const router = express.Router();
 
-// Username/password flow
-router.post("/register-username", registerWithUsername);
-router.post("/login-username", loginWithUsername);
+// OTP-based routes
+router.post("/send-otp", sendOtpHandler); // Send OTP to email
+router.post("/register-otp", registerWithOtp); // Register using OTP
+router.post("/login-otp", loginWithOtp); // Login using OTP
 
-// Profile
-router.get("/me", protect, getMe);
+// Username/Password-based routes
+router.post("/register-username", registerWithUsername); // Register with username
+router.post("/login-username", loginWithUsername); // Login with username
+
+// Profile route (after authentication)
+router.get("/me", getMe);
 
 module.exports = router;

@@ -14,6 +14,7 @@ const sendOtpHandler = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Email is required" });
+    console.log("Received email:", email); // Log email to verify input
 
     let user = await User.findOne({ email });
 
@@ -37,6 +38,7 @@ const sendOtpHandler = async (req, res) => {
 
     try {
       await sendOTP(email, otp);
+      console.log("OTP sent successfully to:", email);
     } catch (err) {
       console.error("OTP sending failed:", err.message);
     }

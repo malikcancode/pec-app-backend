@@ -9,7 +9,6 @@ const adminRoutes = require("./routes/adminRoutes"); // Import admin routes
 
 const app = express();
 
-// ✅ Connect to MongoDB Atlas (serverless-safe)
 connectDB();
 
 // ✅ CORS setup for local dev + deployed frontend

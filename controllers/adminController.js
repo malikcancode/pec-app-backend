@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
 const bcrypt = require("bcryptjs");
+const User = require("../models/User");
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -88,8 +89,40 @@ const getAdminProfile = async (req, res) => {
   }
 };
 
+// --- Get all users (No role-based validation) ---
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("-password"); // Exclude password field
+    res.json({ users });
+  } catch (err) {
+    console.error("Get all users error:", err.message);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+};
+
+// --- Delete user by ID ---
+const deleteUserById = async (req, res) => {
+  try {
+    const { id } = req.params; // Get user ID from the URL parameter
+
+    // Use findByIdAndDelete to remove the user
+    const user = await User.findByIdAndDelete(id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("Delete user error:", err.message);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+};
+
 module.exports = {
   registerAdmin,
   loginAdmin,
   getAdminProfile,
+  getAllUsers,
+  deleteUserById, // Add the deleteUserById function here
 };

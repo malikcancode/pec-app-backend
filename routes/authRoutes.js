@@ -7,6 +7,7 @@ const {
   loginWithUsername,
   getMe,
 } = require("../controllers/authController");
+const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -20,6 +21,6 @@ router.post("/register-username", registerWithUsername); // Register with userna
 router.post("/login-username", loginWithUsername); // Login with username
 
 // Profile route (after authentication)
-router.get("/me", getMe);
+router.get("/me", protect, getMe);
 
 module.exports = router;

@@ -87,6 +87,7 @@ const registerWithOtp = async (req, res) => {
         email: user.email,
         referralCode: user.referralCode,
         accountLevel: user.accountLevel,
+        role: user.role, // Return role in the response
       },
     });
   } catch (err) {
@@ -122,6 +123,7 @@ const loginWithOtp = async (req, res) => {
         email: user.email,
         referralCode: user.referralCode,
         accountLevel: user.accountLevel,
+        role: user.role, // Return role in the response
       },
     });
   } catch (err) {
@@ -170,6 +172,7 @@ const registerWithUsername = async (req, res) => {
         id: user._id,
         name: user.name,
         referralCode: user.referralCode,
+        role: user.role, // Return role in the response
       },
     });
   } catch (err) {
@@ -198,6 +201,7 @@ const loginWithUsername = async (req, res) => {
         id: user._id,
         name: user.name,
         referralCode: user.referralCode,
+        role: user.role, // Return role in the response
       },
     });
   } catch (err) {

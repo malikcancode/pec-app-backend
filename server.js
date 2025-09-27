@@ -14,7 +14,7 @@ connectDB();
 // ✅ CORS setup for local dev + deployed frontend
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://pec-app-frontend.vercel.app",
+  "https://pec-app-frontend.vercel.app/",
 ];
 
 app.use((req, res, next) => {

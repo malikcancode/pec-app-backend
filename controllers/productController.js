@@ -4,7 +4,9 @@ const Product = require("../models/Product");
 exports.createProduct = async (req, res) => {
   try {
     const { name, price, category } = req.body;
-    const image = req.file ? req.file.path : null;
+    const image = req.file
+      ? path.join(__dirname, "..", "uploads", req.file.filename)
+      : null;
 
     const product = new Product({
       name,
@@ -50,7 +52,9 @@ exports.getProductById = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   const { id } = req.params;
   const { name, price, category } = req.body;
-  const image = req.file ? req.file.path : null;
+  const image = req.file
+    ? path.join(__dirname, "..", "uploads", req.file.filename)
+    : null;
 
   try {
     console.log(`Received request to update product with ID ${id}:`, req.body); // Log request data

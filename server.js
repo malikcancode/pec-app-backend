@@ -13,23 +13,28 @@ connectDB();
 
 // ✅ CORS setup for local dev + deployed frontend
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://pec-app-frontend.vercel.app/",
+  "http://localhost:5173", // Local development frontend
+  "https://pec-app-frontend.vercel.app", // Deployed frontend
 ];
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+
+  // Allow the allowed origins only
   if (allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+
+  res.setHeader("Access-Control-Allow-Credentials", "true"); // Allow credentials like cookies or authorization headers
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS"); // Allowed methods
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization"); // Allowed headers
 
   // ✅ Handle OPTIONS preflight request
-  if (req.method === "OPTIONS") return res.sendStatus(200);
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200); // Respond with 200 OK to the preflight request
+  }
 
-  next();
+  next(); // Continue processing the actual request
 });
 
 // ✅ Body parser

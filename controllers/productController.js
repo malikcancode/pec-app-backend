@@ -3,8 +3,9 @@ const Product = require("../models/Product");
 // Create product (Admin only)
 exports.createProduct = async (req, res) => {
   try {
+    console.log("Received request to create product:", req.body); // Log incoming request
     const { name, price, category } = req.body;
-    const image = req.file ? req.file.path : null; // Assuming Multer stores image file
+    const image = req.file ? req.file.path : null;
 
     const product = new Product({
       name,
@@ -16,6 +17,7 @@ exports.createProduct = async (req, res) => {
     await product.save();
     res.status(201).json(product);
   } catch (err) {
+    console.error("Error creating product:", err); // Log the actual error for debugging
     res.status(500).json({ message: "Error creating product", error: err });
   }
 };
@@ -47,26 +49,28 @@ exports.getProductById = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   const { id } = req.params;
   const { name, price, category } = req.body;
-  const image = req.file ? req.file.path : null; // Get the new image if it's uploaded
+  const image = req.file ? req.file.path : null;
 
   try {
+    console.log(`Received request to update product with ID ${id}:`, req.body); // Log request data
+
     const product = await Product.findById(id);
     if (!product) {
+      console.log(`Product with ID ${id} not found`); // Log if product is not found
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Update the fields, but keep the previous image if not updated
     product.name = name || product.name;
     product.price = price || product.price;
     product.category = category || product.category;
-
     if (image) {
-      product.image = image; // Only update image if a new one is uploaded
+      product.image = image;
     }
 
     await product.save();
     res.status(200).json(product);
   } catch (err) {
+    console.error("Error updating product:", err); // Log error for debugging
     res.status(500).json({ message: "Error updating product", error: err });
   }
 };
@@ -74,22 +78,18 @@ exports.updateProduct = async (req, res) => {
 exports.deleteProduct = async (req, res) => {
   const { id } = req.params;
   try {
-    // Check if the product exists
+    console.log(`Received request to delete product with ID ${id}`); // Log delete request
+
     const product = await Product.findById(id);
     if (!product) {
+      console.log(`Product with ID ${id} not found`); // Log if product is not found
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Use `findByIdAndDelete` instead of `remove`
     await Product.findByIdAndDelete(id);
-
-    // Send success response
     res.status(200).json({ message: "Product deleted successfully" });
   } catch (err) {
-    // Log detailed error for debugging
-    console.error("Error deleting product:", err);
-
-    // Return error message to the frontend
+    console.error("Error deleting product:", err); // Log error for debugging
     res
       .status(500)
       .json({ message: "Error deleting product", error: err.message });

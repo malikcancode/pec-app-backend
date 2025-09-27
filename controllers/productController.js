@@ -3,7 +3,6 @@ const Product = require("../models/Product");
 // Create product (Admin only)
 exports.createProduct = async (req, res) => {
   try {
-    console.log("Received request to create product:", req.body); // Log incoming request
     const { name, price, category } = req.body;
     const image = req.file ? req.file.path : null;
 
@@ -17,7 +16,9 @@ exports.createProduct = async (req, res) => {
     await product.save();
     res.status(201).json(product);
   } catch (err) {
-    console.error("Error creating product:", err); // Log the actual error for debugging
+    console.error("Error creating product:", err.message); // Print only the error message
+    console.error("Full error:", err); // Print the complete error object with stack trace
+
     res.status(500).json({ message: "Error creating product", error: err });
   }
 };

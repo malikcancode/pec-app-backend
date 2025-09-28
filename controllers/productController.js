@@ -141,3 +141,16 @@ exports.deleteProduct = async (req, res) => {
       .json({ message: "Error deleting product", error: err.message });
   }
 };
+
+// Get products by category
+exports.getProductsByCategory = async (req, res) => {
+  const { category } = req.params;
+
+  try {
+    const products = await Product.find({ category });
+    res.status(200).json(products);
+  } catch (err) {
+    console.error("Error fetching products by category:", err);
+    res.status(500).json({ message: "Error fetching products", error: err });
+  }
+};

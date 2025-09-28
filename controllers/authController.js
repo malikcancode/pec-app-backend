@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const sendOTP = require("../utils/mailer");
+const cloudinary = require("../middleware/cloudinary");
 
 // Generate token
 const generateToken = (id) => {
@@ -226,7 +227,40 @@ const getMe = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name } = req.body;
+
+    let updateData = {};
+    if (name) updateData.name = name;
+
+    // If file uploaded, upload to Cloudinary
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "profile_images",
+        use_filename: true,
+        unique_filename: false,
+      });
+      updateData.profileImage = result.secure_url;
+    }
+
+    const user = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,
+    }).select("-passwordHash -otp -otpExpires");
+
+    res.json({
+      message: "Profile updated successfully",
+      user,
+    });
+  } catch (err) {
+    console.error("Update profile error:", err.message);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+};
+
 module.exports = {
+  updateProfile,
   sendOtpHandler,
   registerWithOtp,
   loginWithOtp,

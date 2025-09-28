@@ -1,30 +1,71 @@
 const Product = require("../models/Product");
+const cloudinary = require("../middleware/cloudinary"); // Import Cloudinary config
+const fs = require("fs");
 
 // Create product (Admin only)
 exports.createProduct = async (req, res) => {
   try {
     const { name, price, category } = req.body;
-    const image = req.file
-      ? path.join(__dirname, "..", "uploads", req.file.filename)
-      : null;
+
+    let imageUrl = null;
+
+    // Upload the image to Cloudinary if present
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "products",
+      });
+      imageUrl = result.secure_url;
+      // Remove local file after upload
+      fs.unlinkSync(req.file.path);
+    }
 
     const product = new Product({
       name,
       price,
       category,
-      image,
+      image: imageUrl,
     });
 
     await product.save();
     res.status(201).json(product);
   } catch (err) {
-    console.error("Error creating product:", err.message); // Print only the error message
-    console.error("Full error:", err); // Print the complete error object with stack trace
-
+    console.error("Error creating product:", err); // log the whole object
     res.status(500).json({ message: "Error creating product", error: err });
   }
 };
 
+// Update product (Admin only)
+exports.updateProduct = async (req, res) => {
+  const { id } = req.params;
+  const { name, price, category } = req.body;
+
+  let imageUrl = null;
+
+  try {
+    const product = await Product.findById(id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    // Upload new image if present
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "products",
+      });
+      imageUrl = result.secure_url;
+      fs.unlinkSync(req.file.path);
+    }
+
+    product.name = name || product.name;
+    product.price = price || product.price;
+    product.category = category || product.category;
+    if (imageUrl) product.image = imageUrl;
+
+    await product.save();
+    res.status(200).json(product);
+  } catch (err) {
+    console.error("Error updating product:", err);
+    res.status(500).json({ message: "Error updating product", error: err });
+  }
+};
 // Get all products
 exports.getProducts = async (req, res) => {
   try {

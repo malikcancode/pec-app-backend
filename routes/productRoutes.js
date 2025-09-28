@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const productController = require("../controllers/productController");
-const upload = require("../middleware/multer"); // Multer for image upload
+const upload = require("../middleware/multer"); // Import multer middleware
 
 // Create Product (Admin only)
 router.post("/create", upload.single("image"), productController.createProduct);

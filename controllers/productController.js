@@ -79,6 +79,7 @@ exports.updateProduct = async (req, res) => {
     res.status(500).json({ message: "Error updating product", error: err });
   }
 };
+
 // Get all products
 exports.getProducts = async (req, res) => {
   try {

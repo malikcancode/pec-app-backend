@@ -10,20 +10,16 @@ exports.createProduct = async (req, res) => {
     let imageUrl = null;
 
     if (req.file) {
-      // Upload buffer using upload_stream
       const streamUpload = (buffer) => {
         return new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { folder: "products" },
-            (error, result) => {
+          cloudinary.uploader
+            .upload_stream({ folder: "products" }, (error, result) => {
               if (result) resolve(result);
               else reject(error);
-            }
-          );
-          stream.end(buffer);
+            })
+            .end(buffer);
         });
       };
-
       const result = await streamUpload(req.file.buffer);
       imageUrl = result.secure_url;
     }

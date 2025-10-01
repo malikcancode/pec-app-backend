@@ -9,14 +9,23 @@ exports.createProduct = async (req, res) => {
 
     let imageUrl = null;
 
-    // Upload the image to Cloudinary if present
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "products",
-      });
+      // Upload buffer using upload_stream
+      const streamUpload = (buffer) => {
+        return new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "products" },
+            (error, result) => {
+              if (result) resolve(result);
+              else reject(error);
+            }
+          );
+          stream.end(buffer);
+        });
+      };
+
+      const result = await streamUpload(req.file.buffer);
       imageUrl = result.secure_url;
-      // Remove local file after upload
-      fs.unlinkSync(req.file.path);
     }
 
     const product = new Product({
@@ -29,7 +38,7 @@ exports.createProduct = async (req, res) => {
     await product.save();
     res.status(201).json(product);
   } catch (err) {
-    console.error("Error creating product:", err); // log the whole object
+    console.error("Error creating product:", err);
     res.status(500).json({ message: "Error creating product", error: err });
   }
 };

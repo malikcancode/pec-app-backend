@@ -39,30 +39,29 @@ exports.updateProduct = async (req, res) => {
   const { id } = req.params;
   const { name, price, category } = req.body;
 
-  let imageUrl = null;
-
+  const image = req.file
+    ? path.join(__dirname, "..", "uploads", req.file.filename)
+    : null;
   try {
-    const product = await Product.findById(id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    console.log(`Received request to update product with ID ${id}:`, req.body); // Log request data
 
-    // Upload new image if present
-    if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "products",
-      });
-      imageUrl = result.secure_url;
-      fs.unlinkSync(req.file.path);
+    const product = await Product.findById(id);
+    if (!product) {
+      console.log(`Product with ID ${id} not found`); // Log if product is not found
+      return res.status(404).json({ message: "Product not found" });
     }
 
     product.name = name || product.name;
     product.price = price || product.price;
     product.category = category || product.category;
-    if (imageUrl) product.image = imageUrl;
+    if (image) {
+      product.image = image;
+    }
 
     await product.save();
     res.status(200).json(product);
   } catch (err) {
-    console.error("Error updating product:", err);
+    console.error("Error updating product:", err); // Log error for debugging
     res.status(500).json({ message: "Error updating product", error: err });
   }
 };

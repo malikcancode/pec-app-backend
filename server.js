@@ -6,6 +6,7 @@ const walletRoutes = require("./routes/walletRoutes");
 const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const adminRoutes = require("./routes/adminRoutes"); // Import admin routes
+const kycRoutes = require("./routes/kycRoutes"); // Import admin routes
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes); // Add admin routes here
 app.use("/api/wallet", walletRoutes);
 app.use("/api/products", productRoutes); // Add product routes here
+app.use("/api/kyc", kycRoutes);
 
 // ✅ Local dev mode only
 if (require.main === module) {

@@ -10,6 +10,10 @@ const productSchema = new mongoose.Schema(
       enum: [
         "Gadgets",
         "Electronics",
+        "Watches",
+        "Women's fashion",
+        "Hoodies & shirts",
+        "Toys",
         "Shoes",
         "Shirts",
         "Books",

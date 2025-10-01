@@ -1,5 +1,5 @@
 const Product = require("../models/Product");
-const cloudinary = require("../middleware/cloudinary"); // Import Cloudinary config
+const cloudinary = require("../middleware/cloudinary"); // Cloudinary config
 const fs = require("fs");
 
 // Create product (Admin only)
@@ -56,7 +56,7 @@ exports.updateProduct = async (req, res) => {
     product.price = price || product.price;
     product.category = category || product.category;
 
-    // If a new image is uploaded, upload to Cloudinary and update image URL
+    // If a new image is uploaded, upload to Cloudinary
     if (req.file) {
       const streamUpload = (buffer) => {
         return new Promise((resolve, reject) => {
@@ -104,52 +104,22 @@ exports.getProductById = async (req, res) => {
   }
 };
 
-exports.updateProduct = async (req, res) => {
-  const { id } = req.params;
-  const { name, price, category } = req.body;
-  const image = req.file
-    ? path.join(__dirname, "..", "uploads", req.file.filename)
-    : null;
-
-  try {
-    console.log(`Received request to update product with ID ${id}:`, req.body); // Log request data
-
-    const product = await Product.findById(id);
-    if (!product) {
-      console.log(`Product with ID ${id} not found`); // Log if product is not found
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    product.name = name || product.name;
-    product.price = price || product.price;
-    product.category = category || product.category;
-    if (image) {
-      product.image = image;
-    }
-
-    await product.save();
-    res.status(200).json(product);
-  } catch (err) {
-    console.error("Error updating product:", err); // Log error for debugging
-    res.status(500).json({ message: "Error updating product", error: err });
-  }
-};
-
+// Delete product
 exports.deleteProduct = async (req, res) => {
   const { id } = req.params;
   try {
-    console.log(`Received request to delete product with ID ${id}`); // Log delete request
+    console.log(`Received request to delete product with ID ${id}`);
 
     const product = await Product.findById(id);
     if (!product) {
-      console.log(`Product with ID ${id} not found`); // Log if product is not found
+      console.log(`Product with ID ${id} not found`);
       return res.status(404).json({ message: "Product not found" });
     }
 
     await Product.findByIdAndDelete(id);
     res.status(200).json({ message: "Product deleted successfully" });
   } catch (err) {
-    console.error("Error deleting product:", err); // Log error for debugging
+    console.error("Error deleting product:", err);
     res
       .status(500)
       .json({ message: "Error deleting product", error: err.message });

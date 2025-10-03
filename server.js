@@ -52,6 +52,7 @@ app.use("/api/admin", adminRoutes); // Add admin routes here
 app.use("/api/wallet", walletRoutes);
 app.use("/api/products", productRoutes); // Add product routes here
 app.use("/api/kyc", kycRoutes);
+app.use("/api/wallet", walletRoutes);
 
 // ✅ Local dev mode only
 if (require.main === module) {

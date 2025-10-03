@@ -1,22 +1,49 @@
-// routes/walletRoutes.js
 const express = require("express");
 const router = express.Router();
+const walletController = require("../controllers/walletController");
 const {
-  getWallet,
-  createDeposit,
-  confirmDeposit,
-  createWithdraw,
-  approveWithdraw,
-} = require("../controllers/walletController");
-const { protect } = require("../middleware/authMiddleware");
+  protect,
+  adminProtect,
+  admin,
+} = require("../middleware/authMiddleware");
 
-// User wallet routes
-router.get("/", protect, getWallet);
-router.post("/deposit", protect, createDeposit);
-router.post("/withdraw", protect, createWithdraw);
+// ------------------ USER ------------------
+router.post("/deposit", protect, walletController.depositRequest);
+router.post("/withdraw", protect, walletController.withdrawRequest);
 
-// Admin/test manual routes
-router.patch("/confirm/:id", confirmDeposit);
-router.patch("/approve/:id", approveWithdraw);
+// ------------------ ADMIN ------------------
+router.post(
+  "/deposit/approve",
+  adminProtect,
+  admin,
+  walletController.approveDeposit
+);
+router.post(
+  "/deposit/reject",
+  adminProtect,
+  admin,
+  walletController.rejectDeposit
+);
+
+router.post(
+  "/withdraw/approve",
+  adminProtect,
+  admin,
+  walletController.approveWithdraw
+);
+router.post(
+  "/withdraw/reject",
+  adminProtect,
+  admin,
+  walletController.rejectWithdraw
+);
+
+router.get("/my-transactions", protect, walletController.getMyTransactions);
+router.get(
+  "/transactions",
+  adminProtect,
+  admin,
+  walletController.getAllTransactions
+);
 
 module.exports = router;

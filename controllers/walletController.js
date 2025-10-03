@@ -1,158 +1,186 @@
-// controllers/walletController.js
-const Wallet = require("../models/Wallet");
-const Transaction = require("../models/Transaction");
+const WalletTransaction = require("../models/WalletTransaction");
+const User = require("../models/User");
 
-let createInvoice;
-if (process.env.NODE_ENV === "production") {
-  createInvoice = require("../utils/PayKassa").createInvoice;
-} else {
-  createInvoice = require("../utils/MockPayKassa").createInvoice;
-}
+// ------------------ DEPOSIT ------------------
 
-// @desc Get wallet balance & transactions
-// @route GET /api/wallet
-// @access Private
-exports.getWallet = async (req, res) => {
+// User initiates deposit
+exports.depositRequest = async (req, res) => {
   try {
-    let wallet = await Wallet.findOne({ user: req.user.id });
-    if (!wallet) {
-      wallet = await Wallet.create({ user: req.user.id });
-    }
+    const { amount, method, screenshot } = req.body;
+    const userId = req.user.id; // from auth middleware
 
-    const transactions = await Transaction.find({ user: req.user.id }).sort({
-      createdAt: -1,
-    });
-
-    res.json({ balance: wallet.balance, transactions });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// @desc Create deposit via PayKassa
-// @route POST /api/wallet/deposit
-// @access Private
-exports.createDeposit = async (req, res) => {
-  try {
-    const { amount, currency } = req.body;
-
-    const txn = await Transaction.create({
-      user: req.user.id,
-      type: "deposit",
+    const transaction = await WalletTransaction.create({
+      user: userId,
       amount,
-      method: currency,
+      method,
+      type: "deposit",
+      screenshot: screenshot || null,
       status: "pending",
     });
 
-    // Use mock invoice in development
-    const paykassaRes = await createInvoice({
-      amount,
-      currency,
-      orderId: txn._id.toString(),
-    });
-
-    if (paykassaRes.error) {
-      return res.status(400).json({ message: paykassaRes.message });
-    }
-
-    txn.referenceId = paykassaRes.data.invoice;
-    txn.depositAddress = paykassaRes.data.wallet;
-    await txn.save();
-
-    res.status(201).json({
-      message: "Deposit created. Send funds to provided address (mock).",
-      deposit: {
-        address: paykassaRes.data.wallet,
-        amount: paykassaRes.data.amount,
-        invoiceId: paykassaRes.data.invoice,
-        currency: paykassaRes.data.currency,
-      },
-      txn,
-    });
+    res.status(201).json({ success: true, transaction });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @desc Mock confirm deposit (for testing, PayKassa webhook will replace this later)
-// @route PATCH /api/wallet/confirm/:id
-// @access Admin/Test
-exports.confirmDeposit = async (req, res) => {
+// Admin approves deposit
+exports.approveDeposit = async (req, res) => {
   try {
-    const txn = await Transaction.findById(req.params.id);
-    if (!txn) return res.status(404).json({ message: "Transaction not found" });
+    const { transactionId } = req.body;
 
-    if (txn.status !== "pending") {
+    const transaction = await WalletTransaction.findById(
+      transactionId
+    ).populate("user");
+    if (!transaction)
+      return res.status(404).json({ message: "Transaction not found" });
+
+    if (transaction.status !== "pending") {
       return res.status(400).json({ message: "Transaction already processed" });
     }
 
-    txn.status = "success";
-    await txn.save();
+    // Update status
+    transaction.status = "approved";
+    await transaction.save();
 
-    const wallet = await Wallet.findOne({ user: txn.user });
-    wallet.balance += txn.amount;
-    await wallet.save();
+    // Add balance to user
+    transaction.user.balance += transaction.amount;
+    await transaction.user.save();
 
-    res.json({ message: "Deposit confirmed (manual)", txn });
+    res.json({ success: true, message: "Deposit approved", transaction });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @desc Request withdrawal
-// @route POST /api/wallet/withdraw
-// @access Private
-exports.createWithdraw = async (req, res) => {
+// Admin rejects deposit
+exports.rejectDeposit = async (req, res) => {
   try {
-    const { amount, method, walletAddress } = req.body;
+    const { transactionId } = req.body;
 
-    const wallet = await Wallet.findOne({ user: req.user.id });
-    if (!wallet || wallet.balance < amount) {
+    const transaction = await WalletTransaction.findById(transactionId);
+    if (!transaction)
+      return res.status(404).json({ message: "Transaction not found" });
+
+    if (transaction.status !== "pending") {
+      return res.status(400).json({ message: "Transaction already processed" });
+    }
+
+    transaction.status = "rejected";
+    await transaction.save();
+
+    res.json({ success: true, message: "Deposit rejected" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ------------------ WITHDRAW ------------------
+
+// User requests withdraw
+exports.withdrawRequest = async (req, res) => {
+  try {
+    const { amount, method } = req.body;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user || user.balance < amount) {
       return res.status(400).json({ message: "Insufficient balance" });
     }
 
-    const txn = await Transaction.create({
-      user: req.user.id,
-      type: "withdraw",
+    const transaction = await WalletTransaction.create({
+      user: userId,
       amount,
       method,
-      walletAddress,
+      type: "withdraw",
       status: "pending",
     });
 
-    res.status(201).json({ message: "Withdrawal request created", txn });
+    res.status(201).json({ success: true, transaction });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @desc Approve withdrawal (manual for now)
-// @route PATCH /api/wallet/approve/:id
-// @access Admin/Test
+// Admin approves withdraw
 exports.approveWithdraw = async (req, res) => {
   try {
-    const txn = await Transaction.findById(req.params.id);
-    if (!txn) return res.status(404).json({ message: "Transaction not found" });
+    const { transactionId } = req.body;
 
-    if (txn.status !== "pending") {
+    const transaction = await WalletTransaction.findById(
+      transactionId
+    ).populate("user");
+    if (!transaction)
+      return res.status(404).json({ message: "Transaction not found" });
+
+    if (transaction.status !== "pending") {
       return res.status(400).json({ message: "Transaction already processed" });
     }
 
-    const wallet = await Wallet.findOne({ user: txn.user });
-    if (!wallet || wallet.balance < txn.amount) {
-      return res
-        .status(400)
-        .json({ message: "Insufficient balance in wallet" });
+    if (transaction.user.balance < transaction.amount) {
+      return res.status(400).json({ message: "User has insufficient balance" });
     }
 
-    txn.status = "success";
-    await txn.save();
+    // Update status
+    transaction.status = "approved";
+    await transaction.save();
 
-    wallet.balance -= txn.amount;
-    await wallet.save();
+    // Deduct balance from user
+    transaction.user.balance -= transaction.amount;
+    await transaction.user.save();
 
-    res.json({ message: "Withdrawal approved (manual)", txn });
+    res.json({ success: true, message: "Withdraw approved", transaction });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Admin rejects withdraw
+exports.rejectWithdraw = async (req, res) => {
+  try {
+    const { transactionId } = req.body;
+
+    const transaction = await WalletTransaction.findById(transactionId);
+    if (!transaction)
+      return res.status(404).json({ message: "Transaction not found" });
+
+    if (transaction.status !== "pending") {
+      return res.status(400).json({ message: "Transaction already processed" });
+    }
+
+    transaction.status = "rejected";
+    await transaction.save();
+
+    res.json({ success: true, message: "Withdraw rejected" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// User transactions
+exports.getMyTransactions = async (req, res) => {
+  try {
+    const transactions = await WalletTransaction.find({
+      user: req.user.id,
+    }).sort({ createdAt: -1 });
+    const user = await User.findById(req.user.id).select("balance name email");
+
+    res.json({ transactions, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Admin transactions
+exports.getAllTransactions = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const transactions = await WalletTransaction.find(filter)
+      .populate("user")
+      .sort({ createdAt: -1 });
+    res.json({ success: true, transactions });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

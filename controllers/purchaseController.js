@@ -1,0 +1,118 @@
+const User = require("../models/User");
+const Product = require("../models/Product");
+const Purchase = require("../models/Purchase");
+
+exports.buyProduct = async (req, res) => {
+  try {
+    const { productId } = req.body;
+    const userId = req.user.id;
+
+    // 1. Find product
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // 2. Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // 3. Check balance
+    if (user.balance < product.price) {
+      return res.status(400).json({ message: "Insufficient balance" });
+    }
+
+    // 4. Deduct balance
+    user.balance -= product.price;
+    await user.save();
+
+    // 5. Record purchase
+    const purchase = await Purchase.create({
+      user: userId,
+      product: productId,
+      amount: product.price,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Product purchased successfully",
+      purchase,
+      balance: user.balance,
+    });
+  } catch (error) {
+    console.error("Buy product error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Get user's purchases
+exports.getMyPurchases = async (req, res) => {
+  try {
+    const purchases = await Purchase.find({ user: req.user.id })
+      .populate("product")
+      .sort({ createdAt: -1 });
+    res.json({ success: true, purchases });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Admin: get all purchases
+exports.getAllPurchases = async (req, res) => {
+  try {
+    const purchases = await Purchase.find()
+      .populate("user")
+      .populate("product")
+      .sort({ createdAt: -1 });
+    res.json({ success: true, purchases });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.claimProfit = async (req, res) => {
+  try {
+    const { purchaseId } = req.body;
+    const userId = req.user.id;
+
+    // Find purchase
+    const purchase = await Purchase.findById(purchaseId).populate("product");
+    if (!purchase) {
+      return res.status(404).json({ message: "Purchase not found" });
+    }
+    if (purchase.user.toString() !== userId) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    if (purchase.status !== "to_be_paid") {
+      return res.status(400).json({ message: "Profit already claimed" });
+    }
+
+    // Calculate profit (e.g., 10%)
+    const profitPercent = 10;
+    const profitAmount = Math.round(
+      (purchase.product.price * profitPercent) / 100
+    );
+
+    // Add profit to user's wallet
+    const user = await User.findById(userId);
+    user.balance += profitAmount;
+    await user.save();
+
+    // Update purchase status
+    purchase.status = "paid";
+    purchase.paymentClaimedAt = new Date();
+    await purchase.save();
+
+    res.json({
+      success: true,
+      message: "Profit claimed",
+      profitAmount,
+      balance: user.balance,
+      purchase,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

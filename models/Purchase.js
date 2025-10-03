@@ -1,17 +1,22 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const purchaseSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+    },
+    amount: { type: Number, required: true }, // product price at purchase time
     status: {
       type: String,
-      enum: ["pending", "completed"],
-      default: "pending",
+      enum: ["to_be_paid", "paid", "cancelled"],
+      default: "to_be_paid",
     },
-    releaseDate: Date,
+    paymentClaimedAt: { type: Date }, // When profit was claimed
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Purchase", purchaseSchema);
+module.exports = mongoose.model("Purchase", purchaseSchema);

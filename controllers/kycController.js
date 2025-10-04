@@ -9,16 +9,15 @@ const uploadToCloudinary = async (file, folder) => {
   );
 };
 
-// ✅ Create KYC
 exports.createKYC = async (req, res) => {
   try {
-    const { name, address, phone, email, idType, idNumber } = req.body;
+    const userId = req.user?._id; // comes from `protect` middleware
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-    if (!name || !address || !phone || !email || !idType || !idNumber) {
-      return res.status(400).json({ error: "All fields are required" });
-    }
+    const { name, address, phone, idType, idNumber } = req.body;
 
-    const existingKYC = await KYC.findOne({ email, status: "pending" });
+    // Check for existing pending KYC for this user
+    const existingKYC = await KYC.findOne({ user: userId, status: "pending" });
     if (existingKYC) {
       return res
         .status(400)
@@ -39,15 +38,15 @@ exports.createKYC = async (req, res) => {
     }
 
     const newKYC = new KYC({
+      user: userId, // assign user here
       name,
       address,
       phone,
-      email,
       idType,
       idNumber,
       idFront: idFrontUrl,
       idBack: idBackUrl,
-      status: "pending", // default status
+      status: "pending",
     });
 
     await newKYC.save();
@@ -84,10 +83,8 @@ exports.getKYCById = async (req, res) => {
 // ✅ Get Current User's KYC (by token)
 exports.getMyKYC = async (req, res) => {
   try {
-    const userEmail = req.user?.email; // assuming req.user is populated from token middleware
-    if (!userEmail) return res.status(401).json({ error: "Unauthorized" });
+    const myKYC = await KYC.findOne({ user: req.user._id });
 
-    const myKYC = await KYC.findOne({ email: userEmail });
     if (!myKYC) return res.status(404).json({ message: "No KYC record found" });
 
     res.status(200).json(myKYC);

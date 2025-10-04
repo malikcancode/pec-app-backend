@@ -2,14 +2,20 @@ const mongoose = require("mongoose");
 
 const kycSchema = new mongoose.Schema(
   {
-    name: String,
-    address: String,
-    phone: String,
-    email: String,
-    idType: String,
-    idNumber: String,
-    idFront: String,
-    idBack: String,
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true, // ensures one KYC per user
+    },
+    name: { type: String, required: true },
+    address: { type: String, required: true },
+    phone: { type: String, required: true },
+    email: { type: String }, // optional now
+    idType: { type: String, required: true },
+    idNumber: { type: String, required: true },
+    idFront: { type: String, required: true },
+    idBack: { type: String, required: true },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

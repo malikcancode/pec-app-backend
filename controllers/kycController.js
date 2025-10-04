@@ -14,10 +14,13 @@ exports.createKYC = async (req, res) => {
     const userId = req.user?._id; // comes from `protect` middleware
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-    const { name, address, phone, idType, idNumber } = req.body;
+    const { name, address, phone, email, idType, idNumber } = req.body;
 
     // Check for existing pending KYC for this user
-    const existingKYC = await KYC.findOne({ user: userId, status: "pending" });
+    const existingKYC = await KYC.findOne({
+      $or: [{ user: userId }, { email }],
+      status: "pending",
+    });
     if (existingKYC) {
       return res
         .status(400)
@@ -38,10 +41,11 @@ exports.createKYC = async (req, res) => {
     }
 
     const newKYC = new KYC({
-      user: userId, // assign user here
+      user: userId,
       name,
       address,
       phone,
+      email, // ✅ add email here
       idType,
       idNumber,
       idFront: idFrontUrl,
@@ -97,6 +101,23 @@ exports.getMyKYC = async (req, res) => {
 // ✅ Update KYC
 exports.updateKYC = async (req, res) => {
   try {
+    const { email } = req.body;
+
+    // Check if another pending KYC exists with the same email
+    if (email) {
+      const existingKYC = await KYC.findOne({
+        email,
+        status: "pending",
+        _id: { $ne: req.params.id }, // exclude current KYC
+      });
+
+      if (existingKYC) {
+        return res
+          .status(400)
+          .json({ error: "Another KYC with this email is pending." });
+      }
+    }
+
     let updatedData = { ...req.body };
 
     if (req.files?.idFront) {

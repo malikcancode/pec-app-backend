@@ -5,10 +5,14 @@ const {
   createKYC,
   getAllKYC,
   getKYCById,
+  getMyKYC,
   updateKYC,
   deleteKYC,
 } = require("../controllers/kycController");
 
+const { protect } = require("../middleware/authMiddleware");
+
+router.get("/my-kyc", protect, getMyKYC); // ✅ protect this
 // Routes
 router.post(
   "/",

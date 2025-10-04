@@ -5,6 +5,7 @@ const {
   getAdminProfile,
   getAllUsers,
   deleteUserById,
+  verifyOrRejectKYC,
 } = require("../controllers/adminController");
 const { admin, adminProtect } = require("../middleware/authMiddleware");
 
@@ -17,6 +18,8 @@ router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
 
 router.get("/users", adminProtect, admin, getAllUsers);
+
+router.put("/verify/:id", adminProtect, admin, verifyOrRejectKYC);
 
 router.get("/admin-profile", adminProtect, admin, getAdminProfile);
 router.delete("/users/:id", adminProtect, deleteUserById); // DELETE route to delete a user

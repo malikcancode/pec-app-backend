@@ -2,20 +2,23 @@ const mongoose = require("mongoose");
 
 const kycSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
-    address: { type: String, required: true },
-    phone: { type: String, required: true },
-    email: { type: String, required: true },
-    idType: { type: String, required: true },
-    idNumber: { type: String, required: true },
+    name: String,
+    address: String,
+    phone: String,
+    email: String,
+    idType: String,
+    idNumber: String,
+    idFront: String,
+    idBack: String,
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
-
-    idFront: { type: String, required: true }, // Cloudinary URL
-    idBack: { type: String, required: true }, // Cloudinary URL
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

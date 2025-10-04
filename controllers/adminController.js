@@ -2,10 +2,11 @@ const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const KYC = require("../models/KYC"); // ✅ Add this import
 
-// Generate JWT Token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+// Generate JWT Token (include role)
+const generateToken = (id, role) => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
 // Register Admin
@@ -18,14 +19,10 @@ const registerAdmin = async (req, res) => {
       return res.status(400).json({ error: "Admin already exists" });
     }
 
-    const admin = new Admin({
-      username,
-      password,
-    });
-
+    const admin = new Admin({ username, password });
     await admin.save();
 
-    const token = generateToken(admin._id);
+    const token = generateToken(admin._id, "admin");
 
     res.status(201).json({
       message: "Admin registered successfully",
@@ -56,7 +53,7 @@ const loginAdmin = async (req, res) => {
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
-    const token = generateToken(admin._id);
+    const token = generateToken(admin._id, "admin");
 
     res.status(200).json({
       message: "Login successful",
@@ -64,7 +61,6 @@ const loginAdmin = async (req, res) => {
       admin: {
         _id: admin._id,
         username: admin.username,
-        // email: admin.email,
         role: admin.role,
       },
     });
@@ -73,6 +69,7 @@ const loginAdmin = async (req, res) => {
   }
 };
 
+// Get Admin Profile
 const getAdminProfile = async (req, res) => {
   try {
     const admin = req.admin;
@@ -89,10 +86,10 @@ const getAdminProfile = async (req, res) => {
   }
 };
 
-// --- Get all users (No role-based validation) ---
+// Get all users
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password"); // Exclude password field
+    const users = await User.find().select("-password");
     res.json({ users });
   } catch (err) {
     console.error("Get all users error:", err.message);
@@ -100,22 +97,54 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-// --- Delete user by ID ---
+// Delete user
 const deleteUserById = async (req, res) => {
   try {
-    const { id } = req.params; // Get user ID from the URL parameter
-
-    // Use findByIdAndDelete to remove the user
+    const { id } = req.params;
     const user = await User.findByIdAndDelete(id);
-
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-
     res.status(200).json({ message: "User deleted successfully" });
   } catch (err) {
     console.error("Delete user error:", err.message);
     res.status(500).json({ error: "Server error", details: err.message });
+  }
+};
+
+// ✅ Admin Verify or Reject KYC
+const verifyOrRejectKYC = async (req, res) => {
+  try {
+    const { status, reason } = req.body; // status = "approved" or "rejected"
+    const kycId = req.params.id;
+
+    // Ensure valid status
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status value" });
+    }
+
+    const kyc = await KYC.findById(kycId);
+    if (!kyc) {
+      return res.status(404).json({ error: "KYC not found" });
+    }
+
+    // Update status and rejection reason if applicable
+    kyc.status = status;
+    if (status === "rejected" && reason) {
+      kyc.rejectionReason = reason;
+    }
+
+    await kyc.save();
+
+    res.status(200).json({
+      message: `KYC ${
+        status === "approved" ? "approved ✅" : "rejected ❌"
+      } successfully`,
+      kyc,
+    });
+  } catch (err) {
+    console.error("Error verifying/rejecting KYC:", err.message);
+    res.status(500).json({ error: "Server error" });
   }
 };
 
@@ -124,5 +153,6 @@ module.exports = {
   loginAdmin,
   getAdminProfile,
   getAllUsers,
-  deleteUserById, // Add the deleteUserById function here
+  deleteUserById,
+  verifyOrRejectKYC, // ✅ add this line
 };

@@ -14,6 +14,18 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ["user", "admin"], default: "user" },
   profileImage: { type: String, default: null },
   balance: { type: Number, default: 0 },
+  // 🏪 Store Info
+  storeName: { type: String, default: "" },
+  phone: { type: String, default: "" },
+
+  // 🏦 Bank Details
+  bankName: { type: String, default: "" },
+  accountNumber: { type: String, default: "" },
+  ifscCode: { type: String, default: "" },
+  accountHolder: { type: String, default: "" },
+
+  // 💰 Crypto
+  trc20Wallet: { type: String, default: "" },
 });
 
 module.exports = mongoose.model("User", userSchema);

@@ -1,13 +1,10 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const Admin = require("../models/Admin"); // <-- Add this line
+const Admin = require("../models/Admin");
 
 const protect = async (req, res, next) => {
   let token;
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
+  if (req.headers.authorization?.startsWith("Bearer")) {
     try {
       token = req.headers.authorization.split(" ")[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -24,18 +21,17 @@ const protect = async (req, res, next) => {
 
 const adminProtect = async (req, res, next) => {
   let token;
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
+  if (req.headers.authorization?.startsWith("Bearer")) {
     try {
       token = req.headers.authorization.split(" ")[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       req.admin = await Admin.findById(decoded.id).select("-password");
-      if (!req.admin)
+      if (!req.admin) {
         return res.status(401).json({ message: "Admin not found" });
+      }
       next();
     } catch (err) {
+      console.error("Admin auth error:", err.message);
       return res.status(401).json({ message: "Not authorized" });
     }
   } else {
@@ -51,4 +47,4 @@ const admin = (req, res, next) => {
   }
 };
 
-module.exports = { protect, admin, adminProtect };
+module.exports = { protect, adminProtect, admin };

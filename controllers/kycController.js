@@ -81,6 +81,22 @@ exports.getKYCById = async (req, res) => {
   }
 };
 
+// ✅ Get Current User's KYC (by token)
+exports.getMyKYC = async (req, res) => {
+  try {
+    const userEmail = req.user?.email; // assuming req.user is populated from token middleware
+    if (!userEmail) return res.status(401).json({ error: "Unauthorized" });
+
+    const myKYC = await KYC.findOne({ email: userEmail });
+    if (!myKYC) return res.status(404).json({ message: "No KYC record found" });
+
+    res.status(200).json(myKYC);
+  } catch (err) {
+    console.error("Error fetching user KYC:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 // ✅ Update KYC
 exports.updateKYC = async (req, res) => {
   try {

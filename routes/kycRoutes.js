@@ -16,6 +16,7 @@ router.get("/my-kyc", protect, getMyKYC); // ✅ protect this
 // Routes
 router.post(
   "/",
+  protect,
   upload.fields([{ name: "idFront" }, { name: "idBack" }]),
   createKYC
 );

@@ -17,7 +17,6 @@ const app = express();
 
 connectDB();
 
-// ✅ CORS setup for local dev + deployed frontend
 const allowedOrigins = [
   "http://localhost:5173", // Local development frontend
   "https://pec-app-frontend.vercel.app", // Deployed frontend

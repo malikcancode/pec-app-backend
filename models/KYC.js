@@ -6,12 +6,12 @@ const kycSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true, // ensures one KYC per user
+      unique: true,
     },
     name: { type: String, required: true },
     address: { type: String, required: true },
     phone: { type: String, required: true },
-    email: { type: String }, // optional now
+    email: { type: String },
     idType: { type: String, required: true },
     idNumber: { type: String, required: true },
     idFront: { type: String, required: true },

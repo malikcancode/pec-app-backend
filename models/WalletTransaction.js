@@ -8,9 +8,11 @@ const walletTransactionSchema = new mongoose.Schema(
     type: { type: String, enum: ["deposit", "withdraw"], required: true },
     method: {
       type: String,
-      enum: ["Bank Transfer", "Easypaisa", "JazzCash", "Bkash", "Nagad", "UPI"], // ✅ same as frontend
+      enum: ["Bank Transfer", "Easypaisa", "JazzCash", "Bkash", "Nagad", "UPI"],
       required: true,
     },
+    accountName: { type: String }, // ✅ added
+    accountNumber: { type: String }, // ✅ added
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

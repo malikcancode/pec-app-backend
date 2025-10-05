@@ -21,7 +21,7 @@ const productSchema = new mongoose.Schema(
         "Health & Wellness",
       ],
     },
-    image: { type: String }, // Path to the image (can be URL or local file path)
+    image: { type: String },
   },
   { timestamps: true }
 );

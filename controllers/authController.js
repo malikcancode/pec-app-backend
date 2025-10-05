@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const sendOTP = require("../utils/mailer");
 const cloudinary = require("../middleware/cloudinary");
+const Notification = require("../models/Notification");
 
 // Generate token
 const generateToken = (id) => {
@@ -80,6 +81,12 @@ const registerWithOtp = async (req, res) => {
     user.otpExpires = null;
 
     await user.save();
+
+    await Notification.create({
+      title: "New User Registered",
+      message: `${user.name} has just registered.`,
+      user: user._id,
+    });
 
     res.json({
       message: "Registration completed successfully",
@@ -168,6 +175,11 @@ const registerWithUsername = async (req, res) => {
         : null,
     });
 
+    await Notification.create({
+      title: "New User Registered",
+      message: `${user.name} has just registered.`,
+      user: user._id,
+    });
     res.json({
       message: "Account created successfully",
       token: generateToken(user._id),

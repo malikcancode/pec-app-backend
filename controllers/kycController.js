@@ -1,5 +1,6 @@
 const KYC = require("../models/KYC");
 const cloudinary = require("../middleware/cloudinary"); // ✅ import cloudinary
+const Notification = require("../models/Notification");
 
 // Upload helper for buffers → Cloudinary
 const uploadToCloudinary = async (file, folder) => {
@@ -54,6 +55,13 @@ exports.createKYC = async (req, res) => {
     });
 
     await newKYC.save();
+
+    // ✅ Send notification to admin
+    await Notification.create({
+      title: "New KYC Submission",
+      message: `${req.user.name} has submitted a new KYC verification request.`,
+      user: userId,
+    });
     res.status(201).json(newKYC);
   } catch (err) {
     console.error("Error creating KYC:", err.message);

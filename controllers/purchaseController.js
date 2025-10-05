@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const Product = require("../models/Product");
 const Purchase = require("../models/Purchase");
+const Notification = require("../models/Notification");
 
 exports.buyProduct = async (req, res) => {
   try {
@@ -33,6 +34,12 @@ exports.buyProduct = async (req, res) => {
       user: userId,
       product: productId,
       amount: product.price,
+    });
+
+    await Notification.create({
+      title: "New Purchase",
+      message: `${req.user.name} purchased ${product.name}.`,
+      user: req.user._id,
     });
 
     res.status(201).json({
@@ -87,6 +94,19 @@ exports.claimProfit = async (req, res) => {
     }
     if (purchase.status !== "to_be_paid") {
       return res.status(400).json({ message: "Profit already claimed" });
+    }
+
+    // Check if 72 hours have passed
+    const purchaseTime = new Date(purchase.createdAt);
+    const now = new Date();
+    const hoursSincePurchase = (now - purchaseTime) / (1000 * 60 * 60); // convert ms to hours
+
+    if (hoursSincePurchase < 72) {
+      return res.status(400).json({
+        message: `Profit can only be claimed after 72 hours. Please wait ${Math.ceil(
+          72 - hoursSincePurchase
+        )} more hour(s).`,
+      });
     }
 
     // Calculate profit (e.g., 10%)

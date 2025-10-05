@@ -9,6 +9,8 @@ const adminRoutes = require("./routes/adminRoutes"); // Import admin routes
 const kycRoutes = require("./routes/kycRoutes"); // Import admin routes
 const purchaseRoutes = require("./routes/purchaseRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+const announcementRoutes = require("./routes/announcementRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 const app = express();
 
@@ -57,6 +59,10 @@ app.use("/api/kyc", kycRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/purchases", purchaseRoutes);
 app.use("/api/settings", settingsRoutes);
+
+app.use("/api/notifications", notificationRoutes);
+
+app.use("/api/announcements", announcementRoutes);
 
 // ✅ Local dev mode only
 if (require.main === module) {

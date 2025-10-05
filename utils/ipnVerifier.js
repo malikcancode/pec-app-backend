@@ -1,30 +1,40 @@
-const crypto = require("crypto");
-const allowedIps = []; // Optionally preload or fetch from Paykassa’s IP list
+async function handleIpn(req, res) {
+  try {
+    // Step 1: Verify the request
+    if (!verifyIpnRequest(req)) {
+      console.warn("IPN verification failed", req.ip, req.body);
+      return res.status(403).send("Forbidden");
+    }
 
-// Basic IP whitelist check (optional)
-function isIpAllowed(ip) {
-  if (!allowedIps || allowedIps.length === 0) return true;
-  return allowedIps.includes(ip);
-}
+    const { private_hash, order_id, status, txid, amount } = req.body;
 
-// Optionally verify signature / hash / private secret
-function verifyIpnRequest(req) {
-  // Example: you may want to check that the request comes from allowed IPs
-  const ip = req.ip || req.connection.remoteAddress;
-  if (!isIpAllowed(ip)) {
-    console.warn("IP not allowed for IPN:", ip);
-    return false;
+    // Step 2: Find the deposit in your DB
+    const deposit = await Deposit.findOne({ orderId: order_id });
+    if (!deposit) {
+      console.warn("Deposit orderId not found:", order_id);
+      // Still respond so Paykassa knows you received it
+      return res.send(`${order_id}|success`);
+    }
+
+    // Step 3: Update deposit if status is "yes"
+    if (status === "yes" && deposit.status !== "credited") {
+      deposit.status = "credited";
+      deposit.txid = txid;
+      deposit.receivedAmount = parseFloat(amount);
+      await deposit.save();
+
+      // Credit user balance
+      const user = await User.findById(deposit.user);
+      if (user) {
+        user.balance = (user.balance || 0) + parseFloat(amount);
+        await user.save();
+      }
+    }
+
+    // Step 4: Respond to Paykassa to confirm processing
+    return res.send(`${order_id}|success`);
+  } catch (err) {
+    console.error("handleIpn error:", err);
+    return res.status(500).send("Error");
   }
-
-  // Optionally you verify a hash, signature, or “private_hash” etc
-  // If Paykassa sends a secret or uses a signature, do it here.
-  // For now, accept it if private_hash exists.
-  if (!req.body.private_hash) {
-    return false;
-  }
-  return true;
 }
-
-module.exports = {
-  verifyIpnRequest,
-};

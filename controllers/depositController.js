@@ -4,14 +4,23 @@ const { verifyIpnRequest } = require("../utils/ipnVerifier");
 
 const {
   merchantApi,
+  GenerateAddressRequest,
   CheckTransactionRequest,
+  System,
+  Currency,
 } = require("../utils/paykassaClient");
 
 // Create deposit address (initiate deposit)
 async function initDeposit(req, res) {
   try {
-    const { userId, amount, system, currency } = req.body;
-    if (!userId || !amount || !system || !currency) {
+    const { userId, amount } = req.body;
+    const system = System.TRON_TRC20;
+    const currency = Currency.USDT;
+
+    console.log(System.TRON_TRC20); // should print actual numeric/string ID
+    console.log(Currency.USDT);
+
+    if (!userId || !amount) {
       return res.status(400).json({ error: "Missing parameters" });
     }
 
@@ -20,30 +29,35 @@ async function initDeposit(req, res) {
     const orderId = `dep_${Date.now()}_${userId}`;
 
     // Call Paykassa generateAddress
-    const request = new merchantApi.GenerateAddressRequest()
+    const request = new GenerateAddressRequest()
       .setOrderId(orderId)
       .setSystem(system)
       .setCurrency(currency)
-      .setComment(`Deposit for user ${userId}`);
-    const response = await merchantApi.generateAddress(request);
+      .setComment("Deposit test");
 
-    if (response.getError()) {
-      const msg = response.getMessage() || "Error from Paykassa";
+    const response = await merchantApi.generateAddress(request);
+    console.log("Paykassa response:", response);
+    const data = response._data; // <-- important in test mode
+
+    if (!data || data.error) {
+      const msg = data?.message || "Error from Paykassa";
       return res.status(500).json({ error: msg });
     }
 
-    const wallet = response.getWallet();
-    const tag = response.getIsTag() ? response.getTag() : null;
-    const invoice = response.getInvoiceId();
+    // NEW (works with SDK returning plain object)
+    // Extract required fields
+    const wallet = data.wallet;
+    const tag = data.is_tag ? data.tag : null;
+    const invoice = data.invoice_id; // this will be your orderId
 
     // Save in DB
     const deposit = await Deposit.create({
       user: userId,
-      orderId: invoice,
+      orderId: invoice, // required
       expectedAmount: amount,
       system,
       currency,
-      walletAddress: wallet,
+      walletAddress: wallet, // required
       tag,
       status: "pending",
     });
@@ -77,9 +91,8 @@ async function handleIpn(req, res) {
     }
 
     // Call Paykassa checkTransaction (or checkPayment, depending on their API)
-    const checkReq = new merchantApi.CheckTransactionRequest().setPrivateHash(
-      privateHash
-    );
+    const checkReq = new CheckTransactionRequest().setPrivateHash(privateHash);
+
     const checkRes = await merchantApi.checkTransaction(checkReq);
 
     if (checkRes.getError()) {

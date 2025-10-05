@@ -11,6 +11,7 @@ const purchaseRoutes = require("./routes/purchaseRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
 const announcementRoutes = require("./routes/announcementRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const depositRoutes = require("./routes/depositRoutes");
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use("/api/kyc", kycRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/purchases", purchaseRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/deposit", depositRoutes);
 
 app.use("/api/notifications", notificationRoutes);
 

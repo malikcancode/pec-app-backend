@@ -1,5 +1,19 @@
+// {
+//   "version": 2,
+//   "builds": [{ "src": "server.js", "use": "@vercel/node" }],
+//   "routes": [{ "src": "/(.*)", "dest": "server.js" }]
+// }
+
 {
-  "version": 2,
-  "builds": [{ "src": "server.js", "use": "@vercel/node" }],
-  "routes": [{ "src": "/(.*)", "dest": "server.js" }]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://pec-app-backend.vercel.app/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

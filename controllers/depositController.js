@@ -5,10 +5,9 @@ const loadPaykassa = require("../utils/paykassaClient");
 
 async function initDeposit(req, res) {
   try {
-    const { amount, userId, network } = req.body; // <-- accept network
+    const { amount, userId, network } = req.body;
     const orderId = Date.now().toString();
 
-    // Dynamically load Paykassa SDK
     const { MerchantApi, GenerateAddressRequest, System, Currency } =
       await loadPaykassa();
 
@@ -17,7 +16,7 @@ async function initDeposit(req, res) {
       process.env.PAYKASSA_MERCHANT_PASSWORD
     ).setTest(process.env.NODE_ENV === "development");
 
-    // Map network to Paykassa System constant
+    // 🧩 Map network to Paykassa System constant
     let system;
     if (network === "trc20") {
       system = System.TRON_TRC20;
@@ -28,11 +27,18 @@ async function initDeposit(req, res) {
       return res.status(400).json({ error: "Invalid network" });
     }
 
+    // ✅ Set success and fail URLs dynamically (frontend domain)
+    const successUrl = "https://www.partnersellercentre.shop/success";
+    const failUrl = "https://www.partnersellercentre.shop/fail";
+
+    // 🪙 Create a deposit address
     const request = new GenerateAddressRequest()
       .setOrderId(orderId)
       .setSystem(system)
       .setCurrency(Currency.USDT)
-      .setComment(`Deposit for user ${userId}`);
+      .setComment(`Deposit for user ${userId}`)
+      .setSuccessUrl(successUrl)
+      .setFailUrl(failUrl);
 
     const result = await paykassa.generateAddress(request);
 
@@ -40,6 +46,7 @@ async function initDeposit(req, res) {
       return res.status(400).json({ error: result.getMessage() });
     }
 
+    // 🧾 Save deposit info in DB
     const deposit = new Deposit({
       user: userId,
       orderId,

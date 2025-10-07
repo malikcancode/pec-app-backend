@@ -2,33 +2,24 @@ const Deposit = require("../models/depositModel");
 const User = require("../models/User"); // your user model
 const { verifyIpnRequest } = require("../utils/ipnVerifier");
 
-const {
-  merchantApi,
-  GenerateAddressRequest,
-  CheckTransactionRequest,
-  System,
-  Currency,
-} = require("../utils/paykassaClient");
+const loadPaykassa = require("../utils/paykassaClient");
 
 // Create deposit address (initiate deposit)
 async function initDeposit(req, res) {
   try {
+    const { merchantApi, GenerateAddressRequest, System, Currency } =
+      await loadPaykassa();
+
     const { userId, amount } = req.body;
     const system = System.TRON_TRC20;
     const currency = Currency.USDT;
-
-    console.log(System.TRON_TRC20); // should print actual numeric/string ID
-    console.log(Currency.USDT);
 
     if (!userId || !amount) {
       return res.status(400).json({ error: "Missing parameters" });
     }
 
-    // Generate a unique orderId (you could use uuid or your own logic)
-    // Use this as Paykassa “order_id” / invoice id
     const orderId = `dep_${Date.now()}_${userId}`;
 
-    // Call Paykassa generateAddress
     const request = new GenerateAddressRequest()
       .setOrderId(orderId)
       .setSystem(system)
@@ -36,37 +27,29 @@ async function initDeposit(req, res) {
       .setComment("Deposit test");
 
     const response = await merchantApi.generateAddress(request);
-    console.log("Paykassa response:", response);
-    const data = response._data; // <-- important in test mode
+    const data = response._data;
 
     if (!data || data.error) {
-      const msg = data?.message || "Error from Paykassa";
-      return res.status(500).json({ error: msg });
+      return res
+        .status(500)
+        .json({ error: data?.message || "Error from Paykassa" });
     }
 
-    // NEW (works with SDK returning plain object)
-    // Extract required fields
-    const wallet = data.wallet;
-    const tag = data.is_tag ? data.tag : null;
-    const invoice = data.invoice_id; // this will be your orderId
-
-    // Save in DB
     const deposit = await Deposit.create({
       user: userId,
-      orderId: invoice, // required
+      orderId: data.invoice_id,
       expectedAmount: amount,
       system,
       currency,
-      walletAddress: wallet, // required
-      tag,
+      walletAddress: data.wallet,
+      tag: data.is_tag ? data.tag : null,
       status: "pending",
     });
 
-    // Return to frontend
     return res.json({
-      orderId: invoice,
-      wallet,
-      tag,
+      orderId: data.invoice_id,
+      wallet: data.wallet,
+      tag: data.tag || null,
       system,
       currency,
     });

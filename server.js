@@ -19,7 +19,7 @@ connectDB();
 
 const allowedOrigins = [
   "http://localhost:5173", // Local development frontend
-  "https://pec-app-frontend.vercel.app", // Deployed frontend
+  "https://pec-app-frontend.vercel.app/", // Deployed frontend
 ];
 
 app.use((req, res, next) => {

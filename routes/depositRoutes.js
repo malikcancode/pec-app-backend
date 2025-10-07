@@ -18,4 +18,7 @@ router.post(
   depositCtrl.handleTransactionNotification
 );
 
+if (process.env.NODE_ENV !== "production") {
+  router.post("/mock-payment", depositCtrl.mockDepositPayment);
+}
 module.exports = router;

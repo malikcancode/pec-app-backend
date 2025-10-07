@@ -1,40 +1,36 @@
-async function handleIpn(req, res) {
+// utils/ipnVerifier.js
+
+/**
+ * Very basic IPN request verification for Paykassa
+ * You can expand this later with signature verification
+ * or whitelist Paykassa IPs if needed.
+ */
+function verifyIpnRequest(req) {
   try {
-    // Step 1: Verify the request
-    if (!verifyIpnRequest(req)) {
-      console.warn("IPN verification failed", req.ip, req.body);
-      return res.status(403).send("Forbidden");
+    // Simple sanity check (you can enhance this)
+    if (!req.body || Object.keys(req.body).length === 0) {
+      console.warn("Empty IPN body");
+      return false;
     }
 
-    const { private_hash, order_id, status, txid, amount } = req.body;
-
-    // Step 2: Find the deposit in your DB
-    const deposit = await Deposit.findOne({ orderId: order_id });
-    if (!deposit) {
-      console.warn("Deposit orderId not found:", order_id);
-      // Still respond so Paykassa knows you received it
-      return res.send(`${order_id}|success`);
+    // Optional: verify signature or merchant_id if provided
+    if (!req.body.merchant_id) {
+      console.warn("Missing merchant_id in IPN");
+      return false;
     }
 
-    // Step 3: Update deposit if status is "yes"
-    if (status === "yes" && deposit.status !== "credited") {
-      deposit.status = "credited";
-      deposit.txid = txid;
-      deposit.receivedAmount = parseFloat(amount);
-      await deposit.save();
-
-      // Credit user balance
-      const user = await User.findById(deposit.user);
-      if (user) {
-        user.balance = (user.balance || 0) + parseFloat(amount);
-        await user.save();
-      }
+    // ✅ You can also validate known merchant_id to ensure it’s your merchant
+    const allowedMerchantId = process.env.PAYKASSA_MERCHANT_ID;
+    if (allowedMerchantId && req.body.merchant_id != allowedMerchantId) {
+      console.warn("Merchant ID mismatch:", req.body.merchant_id);
+      return false;
     }
 
-    // Step 4: Respond to Paykassa to confirm processing
-    return res.send(`${order_id}|success`);
+    return true; // IPN seems valid
   } catch (err) {
-    console.error("handleIpn error:", err);
-    return res.status(500).send("Error");
+    console.error("verifyIpnRequest error:", err);
+    return false;
   }
 }
+
+module.exports = { verifyIpnRequest };

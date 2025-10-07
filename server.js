@@ -24,7 +24,7 @@ connectDB();
 const corsOptions = {
   origin: [
     "http://localhost:5173",
-    "https://pec-app-frontend.vercel.app", // no trailing slash
+    "https://www.partnersellercentre.shop/", // no trailing slash
   ],
   credentials: true, // allow cookies, tokens
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

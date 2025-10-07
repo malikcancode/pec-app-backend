@@ -1,68 +1,87 @@
+const {
+  CheckTransactionRequest,
+  GenerateAddressRequest,
+} = require("paykassa-api-sdk/lib/dto");
+const { Currency, System } = require("paykassa-api-sdk/lib/struct");
 const Deposit = require("../models/depositModel");
-const User = require("../models/User"); // your user model
+const User = require("../models/User");
 const { verifyIpnRequest } = require("../utils/ipnVerifier");
+const paykassaModule = require("paykassa-api-sdk/lib/merchant.js");
+const PaykassaMerchantAPI = paykassaModule.MerchantApi;
 
 const loadPaykassa = require("../utils/paykassaClient");
 
-// Create deposit address (initiate deposit)
 async function initDeposit(req, res) {
   try {
-    const { merchantApi, GenerateAddressRequest, System, Currency } =
-      await loadPaykassa();
+    console.log("initDeposit req.body:", req.body); // <-- Add this
 
-    const { userId, amount } = req.body;
-    const system = System.TRON_TRC20;
-    const currency = Currency.USDT;
+    const { amount, userId, network } = req.body; // <-- accept network
+    const orderId = Date.now().toString();
 
-    if (!userId || !amount) {
-      return res.status(400).json({ error: "Missing parameters" });
+    const paykassa = new PaykassaMerchantAPI(
+      process.env.PAYKASSA_MERCHANT_ID,
+      process.env.PAYKASSA_MERCHANT_PASSWORD
+    ).setTest(process.env.NODE_ENV === "development");
+
+    // Map network to Paykassa System constant
+    let system;
+    if (network === "trc20") {
+      system = System.TRON_TRC20;
+    } else if (network === "bep20") {
+      system = System.BINANCESMARTCHAIN_BEP20;
+    } else {
+      console.error("System is undefined! network value:", network);
+      return res.status(400).json({ error: "Invalid network" });
     }
-
-    const orderId = `dep_${Date.now()}_${userId}`;
+    console.log("Selected system:", system);
 
     const request = new GenerateAddressRequest()
       .setOrderId(orderId)
       .setSystem(system)
-      .setCurrency(currency)
-      .setComment("Deposit test");
+      .setCurrency(Currency.USDT)
+      .setComment(`Deposit for user ${userId}`);
 
-    const response = await merchantApi.generateAddress(request);
-    const data = response._data;
+    const result = await paykassa.generateAddress(request);
 
-    if (!data || data.error) {
-      return res
-        .status(500)
-        .json({ error: data?.message || "Error from Paykassa" });
+    if (result.isError && result.isError()) {
+      return res.status(400).json({ error: result.getMessage() });
     }
 
-    const deposit = await Deposit.create({
+    const deposit = new Deposit({
       user: userId,
-      orderId: data.invoice_id,
+      orderId,
       expectedAmount: amount,
       system,
-      currency,
-      walletAddress: data.wallet,
-      tag: data.is_tag ? data.tag : null,
+      currency: "USDT",
+      walletAddress: result.getWallet(),
+      tag: result.getTag(),
       status: "pending",
     });
+    await deposit.save();
 
-    return res.json({
-      orderId: data.invoice_id,
-      wallet: data.wallet,
-      tag: data.tag || null,
-      system,
-      currency,
+    res.json({
+      success: true,
+      orderId,
+      wallet: result.getWallet(),
+      system: result.getSystem(),
+      currency: result.getCurrency(),
+      tag: result.getTag(),
+      invoiceId: result.getInvoiceId(),
+      url: result.getUrl(),
     });
-  } catch (err) {
-    console.error("initDeposit error:", err);
-    return res.status(500).json({ error: "Internal server error" });
+  } catch (error) {
+    console.error("Deposit init error:", error);
+    res.status(500).json({ error: "Failed to initialize deposit" });
   }
 }
 
 // IPN webhook / callback
 async function handleIpn(req, res) {
   try {
-    // Optional: verify request signature, IP whitelist etc
+    const isLocal =
+      process.env.NODE_ENV === "development" || req.hostname === "localhost";
+    const { merchantApi } = await loadPaykassa();
+
     if (!verifyIpnRequest(req)) {
       console.warn("IPN verification failed", req.ip, req.body);
       return res.status(403).send("Forbidden");
@@ -73,56 +92,60 @@ async function handleIpn(req, res) {
       return res.status(400).send("Missing private_hash");
     }
 
-    // Call Paykassa checkTransaction (or checkPayment, depending on their API)
-    const checkReq = new CheckTransactionRequest().setPrivateHash(privateHash);
+    let orderId, txid, amountReceived, status, system, currency;
 
-    const checkRes = await merchantApi.checkTransaction(checkReq);
+    if (isLocal) {
+      // ✅ MOCK MODE for localhost testing
+      console.log("Running in MOCK mode for local testing");
+      orderId = req.body.order_id;
+      txid = req.body.txid || "mock_txid_123";
+      amountReceived = parseFloat(req.body.amount || "10");
+      status = req.body.status || "yes";
+      system = "TRON_TRC20";
+      currency = "USDT";
+    } else {
+      // ✅ REAL MODE for production (Paykassa validation)
+      const checkReq = new CheckTransactionRequest().setPrivateHash(
+        privateHash
+      );
+      const checkRes = await merchantApi.checkTransaction(checkReq);
 
-    if (checkRes.getError()) {
-      console.error("Paykassa checkTransaction error:", checkRes.getMessage());
-      return res.status(400).send("Error");
+      if (checkRes.getError()) {
+        console.error(
+          "Paykassa checkTransaction error:",
+          checkRes.getMessage()
+        );
+        return res.status(400).send("Error");
+      }
+
+      orderId = checkRes.getOrderId();
+      txid = checkRes.getTxid();
+      amountReceived = parseFloat(checkRes.getAmount());
+      status = checkRes.getStatus();
+      system = checkRes.getSystem();
+      currency = checkRes.getCurrency();
     }
 
-    // Parse data
-    const orderId = checkRes.getOrderId();
-    const txid = checkRes.getTxid();
-    const amountReceived = parseFloat(checkRes.getAmount());
-    const status = checkRes.getStatus(); // e.g. "yes"
-    const system = checkRes.getSystem();
-    const currency = checkRes.getCurrency();
-
-    // Find our deposit record
+    // ---- Update your database ----
     const deposit = await Deposit.findOne({ orderId });
     if (!deposit) {
       console.warn("Deposit orderId not found:", orderId);
       return res.status(404).send("Order not found");
     }
 
-    // Only credit if status "yes"
-    if (status === "yes") {
-      // Avoid double crediting
-      if (deposit.status !== "credited") {
-        deposit.status = "credited";
-        deposit.txid = txid;
-        deposit.receivedAmount = amountReceived;
-        await deposit.save();
-
-        // Credit user balance
-        const user = await User.findById(deposit.user);
-        if (user) {
-          user.balance = (user.balance || 0) + amountReceived;
-          await user.save();
-        } else {
-          console.error("User not found to credit deposit", deposit.user);
-        }
-      }
-    } else {
-      // If still pending / not confirmed, you may leave status
-      deposit.status = "pending";
+    if (status === "yes" && deposit.status !== "credited") {
+      deposit.status = "credited";
+      deposit.txid = txid;
+      deposit.receivedAmount = amountReceived;
       await deposit.save();
+
+      const user = await User.findById(deposit.user);
+      if (user) {
+        user.balance = (user.balance || 0) + amountReceived;
+        await user.save();
+      }
     }
 
-    // Respond to Paykassa (they expect “order_id|success”)
     return res.send(`${orderId}|success`);
   } catch (err) {
     console.error("handleIpn error:", err);
@@ -221,10 +244,45 @@ async function handleTransactionNotification(req, res) {
   }
 }
 
+// MOCK endpoint: Simulate a payment for testing UI
+async function mockDepositPayment(req, res) {
+  try {
+    const { orderId, amount, txid } = req.body;
+    if (!orderId || !amount) {
+      return res.status(400).json({ error: "orderId and amount required" });
+    }
+
+    const deposit = await Deposit.findOne({ orderId });
+    if (!deposit) {
+      return res.status(404).json({ error: "Deposit not found" });
+    }
+
+    if (deposit.status === "credited") {
+      return res.status(400).json({ error: "Already credited" });
+    }
+
+    deposit.status = "credited";
+    deposit.txid = txid || "mock_txid_" + Date.now();
+    deposit.receivedAmount = amount;
+    await deposit.save();
+
+    const user = await User.findById(deposit.user);
+    if (user) {
+      user.balance = (user.balance || 0) + Number(amount);
+      await user.save();
+    }
+
+    return res.json({ success: true, credited: amount, orderId });
+  } catch (err) {
+    console.error("mockDepositPayment error:", err);
+    return res.status(500).json({ error: "Internal error" });
+  }
+}
+
 module.exports = {
+  mockDepositPayment,
   initDeposit,
   handleIpn,
-  handleTransactionNotification,
-
   getDepositStatus,
+  handleTransactionNotification,
 };

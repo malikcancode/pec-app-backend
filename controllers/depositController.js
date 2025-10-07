@@ -1,24 +1,18 @@
-const {
-  CheckTransactionRequest,
-  GenerateAddressRequest,
-} = require("paykassa-api-sdk/lib/dto");
-const { Currency, System } = require("paykassa-api-sdk/lib/struct");
 const Deposit = require("../models/depositModel");
 const User = require("../models/User");
 const { verifyIpnRequest } = require("../utils/ipnVerifier");
-const paykassaModule = require("paykassa-api-sdk/lib/merchant.js");
-const PaykassaMerchantAPI = paykassaModule.MerchantApi;
-
 const loadPaykassa = require("../utils/paykassaClient");
 
 async function initDeposit(req, res) {
   try {
-    console.log("initDeposit req.body:", req.body); // <-- Add this
-
     const { amount, userId, network } = req.body; // <-- accept network
     const orderId = Date.now().toString();
 
-    const paykassa = new PaykassaMerchantAPI(
+    // Dynamically load Paykassa SDK
+    const { MerchantApi, GenerateAddressRequest, System, Currency } =
+      await loadPaykassa();
+
+    const paykassa = new MerchantApi(
       process.env.PAYKASSA_MERCHANT_ID,
       process.env.PAYKASSA_MERCHANT_PASSWORD
     ).setTest(process.env.NODE_ENV === "development");
@@ -33,7 +27,6 @@ async function initDeposit(req, res) {
       console.error("System is undefined! network value:", network);
       return res.status(400).json({ error: "Invalid network" });
     }
-    console.log("Selected system:", system);
 
     const request = new GenerateAddressRequest()
       .setOrderId(orderId)
@@ -80,7 +73,11 @@ async function handleIpn(req, res) {
   try {
     const isLocal =
       process.env.NODE_ENV === "development" || req.hostname === "localhost";
-    const { merchantApi } = await loadPaykassa();
+    const { MerchantApi, CheckTransactionRequest } = await loadPaykassa();
+    const merchantApi = new MerchantApi(
+      process.env.PAYKASSA_MERCHANT_ID,
+      process.env.PAYKASSA_MERCHANT_PASSWORD
+    ).setTest(process.env.NODE_ENV === "development");
 
     if (!verifyIpnRequest(req)) {
       console.warn("IPN verification failed", req.ip, req.body);
@@ -175,13 +172,14 @@ async function getDepositStatus(req, res) {
 
 async function handleTransactionNotification(req, res) {
   try {
-    // (Optional) verify IP / signature etc same as IPN
-    // verifyIpnRequest(req) or similar
+    const { MerchantApi, CheckTransactionRequest } = await loadPaykassa();
+    const merchantApi = new MerchantApi(
+      process.env.PAYKASSA_MERCHANT_ID,
+      process.env.PAYKASSA_MERCHANT_PASSWORD
+    ).setTest(process.env.NODE_ENV === "development");
 
-    const privateHash = req.body.private_hash; // or maybe req.body.transaction or something
-    // Actually, the notification may include the same "private_hash" or other identifier — check docs or experiments
+    const privateHash = req.body.private_hash;
 
-    // Use Paykassa’s checkTransaction API to fetch full details
     const checkReq = new CheckTransactionRequest().setPrivateHash(privateHash);
     const checkRes = await merchantApi.checkTransaction(checkReq);
 
@@ -200,7 +198,7 @@ async function handleTransactionNotification(req, res) {
     const currency = checkRes.getCurrency();
     const address_from = checkRes.getAddressFrom();
     const address = checkRes.getAddress();
-    const tag = checkRes.getTag(); // if applicable
+    const tag = checkRes.getTag();
 
     // Find the deposit record by orderId
     const deposit = await Deposit.findOne({ orderId });

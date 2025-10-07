@@ -8,16 +8,8 @@ async function loadPaykassa() {
     const dto = await import("paykassa-api-sdk/lib/dto.js");
     const struct = await import("paykassa-api-sdk/lib/struct.js");
 
-    const merchantId = process.env.PAYKASSA_MERCHANT_ID;
-    const merchantPassword = process.env.PAYKASSA_MERCHANT_PASSWORD;
-    const testMode = process.env.PAYKASSA_TEST_MODE === "true";
-
-    const merchantApi = new MerchantApi(merchantId, merchantPassword).setTest(
-      testMode
-    );
-
     cached = {
-      merchantApi,
+      MerchantApi,
       GenerateAddressRequest: dto.GenerateAddressRequest,
       CheckTransactionRequest: dto.CheckTransactionRequest,
       System: struct.System,

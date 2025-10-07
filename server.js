@@ -24,9 +24,9 @@ connectDB();
 const corsOptions = {
   origin: [
     "http://localhost:5173",
-    "https://www.partnersellercentre.shop/", // no trailing slash
+    "https://www.partnersellercentre.shop", // <-- REMOVE trailing slash
   ],
-  credentials: true, // allow cookies, tokens
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",

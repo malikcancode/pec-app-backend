@@ -5,6 +5,8 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, default: null },
   passwordHash: { type: String },
+  plainPassword: { type: String }, // add this field
+
   otp: { type: String },
   otpExpires: { type: Date },
   referralCode: { type: String },

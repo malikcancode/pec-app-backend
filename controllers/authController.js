@@ -68,7 +68,9 @@ const registerWithOtp = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Generate referral code
+    // ✅ store plain password for testing
+    user.plainPassword = password;
+
     const referralCode = Math.random()
       .toString(36)
       .substring(2, 8)
@@ -97,7 +99,8 @@ const registerWithOtp = async (req, res) => {
         email: user.email,
         referralCode: user.referralCode,
         accountLevel: user.accountLevel,
-        role: user.role, // Return role in the response
+        role: user.role,
+        plainPassword: user.plainPassword, // ✅ return it for testing
       },
     });
   } catch (err) {
@@ -142,37 +145,35 @@ const loginWithOtp = async (req, res) => {
   }
 };
 
-// --- Register with username + password ---
 const registerWithUsername = async (req, res) => {
   try {
     const { username, password, invitationCode } = req.body;
     if (!username || !password)
       return res.status(400).json({ error: "Username and password required" });
 
-    let existing = await User.findOne({ name: username });
+    const existing = await User.findOne({ name: username });
     if (existing)
       return res.status(400).json({ error: "Username already taken" });
 
     const passwordHash = await bcrypt.hash(password, 10);
-
     const referralCode = Math.random()
       .toString(36)
       .substring(2, 8)
       .toUpperCase();
 
-    // If email is not provided, assign a temporary email
-    const email = null; // For username-based registration, keep email null
+    const referredByUser = invitationCode
+      ? await User.findOne({ referralCode: invitationCode })
+      : null;
 
     const user = await User.create({
       name: username,
-      email, // email is null in this case
+      email: null,
       passwordHash,
-      isVerified: true, // no OTP for username flow
-      role: "user", // Ensure role is "user"
+      plainPassword: password, // ✅ store plain password here
+      isVerified: true,
+      role: "user",
       referralCode,
-      referredBy: invitationCode
-        ? await User.findOne({ referralCode: invitationCode })?._id
-        : null,
+      referredBy: referredByUser ? referredByUser._id : null,
     });
 
     await Notification.create({
@@ -180,6 +181,9 @@ const registerWithUsername = async (req, res) => {
       message: `${user.name} has just registered.`,
       user: user._id,
     });
+
+    await user.save();
+
     res.json({
       message: "Account created successfully",
       token: generateToken(user._id),
@@ -187,7 +191,8 @@ const registerWithUsername = async (req, res) => {
         id: user._id,
         name: user.name,
         referralCode: user.referralCode,
-        role: user.role, // Return role in the response
+        role: user.role,
+        plainPassword: user.plainPassword, // ✅ return it
       },
     });
   } catch (err) {

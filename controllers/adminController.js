@@ -89,7 +89,7 @@ const getAdminProfile = async (req, res) => {
 // Get all users
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const users = await User.find({}, "+plainPassword").lean(); // ✅ lean ensures plain JS
     res.json({ users });
   } catch (err) {
     console.error("Get all users error:", err.message);

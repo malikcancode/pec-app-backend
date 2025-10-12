@@ -46,4 +46,10 @@ router.get(
   walletController.getAllTransactions
 );
 
+router.post(
+  "/release-buyer-escrow",
+  protect,
+  walletController.releaseBuyerEscrow
+);
+
 module.exports = router;

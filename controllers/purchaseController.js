@@ -2,6 +2,7 @@ const User = require("../models/User");
 const Product = require("../models/Product");
 const Purchase = require("../models/Purchase");
 const Notification = require("../models/Notification");
+const WalletTransaction = require("../models/WalletTransaction");
 
 exports.buyProduct = async (req, res) => {
   try {
@@ -42,11 +43,23 @@ exports.buyProduct = async (req, res) => {
       user: req.user._id,
     });
 
+    // 6. Create escrow transaction for buyer only
+    const buyerEscrowTxn = await WalletTransaction.create({
+      user: userId,
+      amount: product.price,
+      type: "escrow",
+      status: "pending",
+      purchase: purchase._id,
+      method: "Escrow",
+      direction: "out",
+    });
+
     res.status(201).json({
       success: true,
       message: "Product purchased successfully",
       purchase,
       balance: user.balance,
+      buyerEscrowTransactionId: buyerEscrowTxn._id,
     });
   } catch (error) {
     console.error("Buy product error:", error);
@@ -54,13 +67,28 @@ exports.buyProduct = async (req, res) => {
   }
 };
 
-// Get user's purchases
 exports.getMyPurchases = async (req, res) => {
   try {
     const purchases = await Purchase.find({ user: req.user.id })
       .populate("product")
       .sort({ createdAt: -1 });
-    res.json({ success: true, purchases });
+
+    const purchasesWithEscrow = await Promise.all(
+      purchases.map(async (purchase) => {
+        const buyerEscrowTxn = await WalletTransaction.findOne({
+          purchase: purchase._id,
+          type: "escrow",
+          user: req.user.id,
+          direction: "out",
+        });
+        return {
+          ...purchase.toObject(),
+          buyerEscrowTransactionId: buyerEscrowTxn ? buyerEscrowTxn._id : null,
+        };
+      })
+    );
+
+    res.json({ success: true, purchases: purchasesWithEscrow });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -95,16 +123,15 @@ exports.claimProfit = async (req, res) => {
     if (purchase.status !== "to_be_paid") {
       return res.status(400).json({ message: "Profit already claimed" });
     }
-
-    // Check if 72 hours have passed
+    // Check if 72 hours seconds have passed (for testing)
     const purchaseTime = new Date(purchase.createdAt);
     const now = new Date();
-    const hoursSincePurchase = (now - purchaseTime) / (1000 * 60 * 60); // convert ms to hours
+    const secondsSincePurchase = (now - purchaseTime) / 1000; // convert ms to seconds
 
-    if (hoursSincePurchase < 72) {
+    if (secondsSincePurchase < 259200) {
       return res.status(400).json({
         message: `Profit can only be claimed after 72 hours. Please wait ${Math.ceil(
-          72 - hoursSincePurchase
+          (259200 - secondsSincePurchase) / 3600
         )} more hour(s).`,
       });
     }

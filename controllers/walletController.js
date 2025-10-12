@@ -87,10 +87,42 @@ exports.rejectDeposit = async (req, res) => {
   }
 };
 
+exports.releaseBuyerEscrow = async (req, res) => {
+  try {
+    const { transactionId } = req.body;
+    const txn = await WalletTransaction.findById(transactionId).populate(
+      "user purchase"
+    );
+    if (
+      !txn ||
+      txn.type !== "escrow" ||
+      (txn.direction && txn.direction !== "out")
+    )
+      return res.status(404).json({ message: "Escrow transaction not found" });
+
+    // Check if 72 hours have passed since purchase
+    const now = new Date();
+    const created = new Date(txn.purchase.createdAt);
+    const secondsPassed = (now - created) / 1000;
+    if (secondsPassed < 259200)
+      return res.status(400).json({ message: "72 hours not completed yet" });
+
+    txn.status = "approved";
+    await txn.save();
+    txn.user.balance += txn.amount;
+    await txn.user.save();
+
+    res.json({
+      success: true,
+      message: "Funds released to your wallet",
+      transaction: txn,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 // ------------------ WITHDRAW ------------------
 
-// User requests withdraw
-// User requests withdraw
 exports.withdrawRequest = async (req, res) => {
   try {
     const { amount, method, accountName, accountNumber } = req.body;
@@ -101,9 +133,18 @@ exports.withdrawRequest = async (req, res) => {
       return res.status(400).json({ message: "Insufficient balance" });
     }
 
+    const fee = Math.round(amount * 0.05 * 100) / 100; // round to 2 decimals
+    const netAmount = Math.round((amount - fee) * 100) / 100;
+
+    // Deduct amount + fee from user balance
+    user.balance -= amount + fee;
+    await user.save();
+
     const transaction = await WalletTransaction.create({
       user: userId,
-      amount,
+      amount, // original amount requested
+      fee, // store fee
+      netAmount, // store net amount user will receive
       method,
       accountName,
       accountNumber,
@@ -127,50 +168,33 @@ exports.withdrawRequest = async (req, res) => {
 };
 
 exports.approveWithdraw = async (req, res) => {
-  const session = await mongoose.startSession();
   try {
-    session.startTransaction();
-
     const { transactionId } = req.body;
 
-    const transaction = await WalletTransaction.findById(transactionId)
-      .populate("user")
-      .session(session);
+    const transaction = await WalletTransaction.findById(
+      transactionId
+    ).populate("user");
 
     if (!transaction) {
-      await session.abortTransaction();
       return res.status(404).json({ message: "Transaction not found" });
     }
 
     if (transaction.status !== "pending") {
-      await session.abortTransaction();
       return res.status(400).json({ message: "Transaction already processed" });
     }
 
-    if (transaction.user.balance < transaction.amount) {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "User has insufficient balance" });
-    }
+    // No need to deduct balance here, already deducted on request
 
     // Update transaction status
     transaction.status = "approved";
-    await transaction.save({ session });
+    await transaction.save();
 
-    // Deduct balance from user
-    transaction.user.balance -= transaction.amount;
-    await transaction.user.save({ session });
-
-    await session.commitTransaction();
     res.json({ success: true, message: "Withdraw approved", transaction });
   } catch (error) {
-    await session.abortTransaction();
     res.status(500).json({ success: false, message: error.message });
-  } finally {
-    session.endSession();
   }
 };
 
-// Admin rejects withdraw
 exports.rejectWithdraw = async (req, res) => {
   const session = await mongoose.startSession();
   try {
@@ -178,9 +202,10 @@ exports.rejectWithdraw = async (req, res) => {
 
     const { transactionId } = req.body;
 
-    const transaction = await WalletTransaction.findById(transactionId).session(
-      session
-    );
+    // Find transaction and populate user
+    const transaction = await WalletTransaction.findById(transactionId)
+      .populate("user")
+      .session(session);
     if (!transaction) {
       await session.abortTransaction();
       return res.status(404).json({ message: "Transaction not found" });
@@ -191,11 +216,18 @@ exports.rejectWithdraw = async (req, res) => {
       return res.status(400).json({ message: "Transaction already processed" });
     }
 
+    // Add amount back to user balance
+    transaction.user.balance += transaction.amount + (transaction.fee || 0);
+    await transaction.user.save({ session });
+
     transaction.status = "rejected";
     await transaction.save({ session });
 
     await session.commitTransaction();
-    res.json({ success: true, message: "Withdraw rejected" });
+    res.json({
+      success: true,
+      message: "Withdraw rejected and amount refunded",
+    });
   } catch (error) {
     await session.abortTransaction();
     res.status(500).json({ success: false, message: error.message });

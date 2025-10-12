@@ -97,6 +97,26 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const updateUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // status: "active", "suspended", "frozen"
+    if (!["active", "suspended", "frozen"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status value" });
+    }
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    user.accountStatus = status;
+    user.isVerified = status === "active";
+    await user.save();
+
+    res.status(200).json({ message: `User ${status} successfully`, user });
+  } catch (err) {
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+};
+
 // Delete user
 const deleteUserById = async (req, res) => {
   try {
@@ -154,5 +174,7 @@ module.exports = {
   getAdminProfile,
   getAllUsers,
   deleteUserById,
+  updateUserStatus, // <-- add this
+
   verifyOrRejectKYC, // ✅ add this line
 };

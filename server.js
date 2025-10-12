@@ -61,7 +61,9 @@ app.use("/api/purchases", purchaseRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/deposit", depositRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/referral", require("./routes/referralRoutes"));
 app.use("/api/announcements", announcementRoutes);
+app.use("/api/statistics", require("./routes/useStatistics"));
 
 // ✅ Local development
 if (require.main === module) {

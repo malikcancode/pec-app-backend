@@ -34,7 +34,7 @@ exports.depositRequest = async (req, res) => {
 // Admin approves deposit
 exports.approveDeposit = async (req, res) => {
   try {
-    const { transactionId } = req.body;
+    const { transactionId, amount } = req.body;
 
     const transaction = await WalletTransaction.findById(
       transactionId
@@ -44,6 +44,11 @@ exports.approveDeposit = async (req, res) => {
 
     if (transaction.status !== "pending") {
       return res.status(400).json({ message: "Transaction already processed" });
+    }
+
+    // If admin provided a new amount, update it
+    if (amount && typeof amount === "number" && amount > 0) {
+      transaction.amount = amount;
     }
 
     // Update status

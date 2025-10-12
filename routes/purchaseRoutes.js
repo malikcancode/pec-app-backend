@@ -4,8 +4,14 @@ const {
   getMyPurchases,
   getAllPurchases,
   claimProfit,
+  deletePurchase,
 } = require("../controllers/purchaseController");
-const { adminProtect, protect } = require("../middleware/authMiddleware");
+const {
+  adminProtect,
+  protect,
+  admin,
+  isAdmin,
+} = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -18,5 +24,5 @@ router.get("/my", protect, getMyPurchases);
 // Admin fetch all purchases
 router.get("/all", adminProtect, getAllPurchases);
 router.post("/claim-profit", protect, claimProfit);
-
+router.delete("/:id", adminProtect, admin, deletePurchase);
 module.exports = router;

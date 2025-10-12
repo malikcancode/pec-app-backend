@@ -136,3 +136,17 @@ exports.claimProfit = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+exports.deletePurchase = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const purchase = await Purchase.findById(id);
+    if (!purchase) {
+      return res.status(404).json({ message: "Purchase not found" });
+    }
+    await Purchase.findByIdAndDelete(id);
+    res.json({ success: true, message: "Purchase deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

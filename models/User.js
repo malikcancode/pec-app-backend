@@ -11,6 +11,11 @@ const userSchema = new mongoose.Schema({
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   accountLevel: { type: Number, default: 1 },
   isVerified: { type: Boolean, default: false },
+  accountStatus: {
+    type: String,
+    enum: ["active", "suspended", "frozen"],
+    default: "active",
+  },
   role: { type: String, enum: ["user", "admin"], default: "user" },
   profileImage: { type: String, default: null },
   balance: { type: Number, default: 0 },
